@@ -1,86 +1,73 @@
-import { action, mutation, query } from './_generated/server'
+import { internalAction, internalMutation } from './_generated/server'
+import { internal } from './_generated/api'
 import { v } from 'convex/values'
+import { sendPushNotifications } from './lib/push'
 
-// Register a push token for the current user
-export const registerToken = mutation({
-  args: {
-    token: v.string(),
-    platform: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) throw new Error('Not authenticated')
+// One notification per domain per minute maximum
+const DEBOUNCE_MS = 60 * 1000
 
-    // Check if token already exists for this user
-    const existing = await ctx.db
-      .query('push_tokens')
-      .withIndex('by_user', (q) => q.eq('userId', identity.subject))
-      .collect()
-
-    const existingToken = existing.find((t) => t.token === args.token)
-
-    if (existingToken) {
-      // Update
-      await ctx.db.patch(existingToken._id, {
-        platform: args.platform ?? existingToken.platform,
-      })
-    } else {
-      await ctx.db.insert('push_tokens', {
-        userId: identity.subject,
-        token: args.token,
-        platform: args.platform,
-        createdAt: Date.now(),
-      })
-    }
-  },
-})
-
-// Send push notification for a blocked domain
-export const sendBlockedNotification = action({
+// Triggered by http.ts after a blocked DNS event is persisted.
+// Debounces, fetches a conversation tip, and sends push notifications.
+export const notifyOnBlocked = internalAction({
   args: {
     domain: v.string(),
     category: v.optional(v.string()),
-    tip: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const tokens = await ctx.runQuery(internal.notifications.getAllTokens)
+    // Atomic debounce check — skip if already notified recently
+    const allowed = await ctx.runMutation(internal.notifications.checkAndSetDebounce, {
+      domain: args.domain,
+    })
+    if (!allowed) return
 
-    if (tokens.length === 0) return
-
-    const messages = tokens.map((t) => ({
-      to: t.token,
-      sound: 'default' as const,
-      title: 'PiGuard: Blocked access',
-      body: args.tip
-        ? `${args.domain} was blocked. 💡 ${args.tip}`
-        : `${args.domain} was blocked from accessing.`,
-      data: {
-        domain: args.domain,
-        category: args.category,
-        type: 'blocked',
-      },
-    }))
-
-    // Send to Expo Push API
-    const response = await fetch('https://exp.host/--/api/v2/push/send', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
-      body: JSON.stringify(messages),
+    // Get a conversation tip (cached or AI-generated)
+    const category = args.category ?? 'default'
+    const tip = await ctx.runAction(internal.tips.getTip, {
+      domain: args.domain,
+      category,
     })
 
-    if (!response.ok) {
-      console.error('Push notification failed:', await response.text())
-    }
+    // Fetch all registered push tokens
+    const tokens = await ctx.runQuery(internal.push_tokens.getAllTokens)
+    if (tokens.length === 0) return
+
+    await sendPushNotifications(
+      tokens.map((t) => ({
+        to: t.token,
+        sound: 'default' as const,
+        title: 'PiGuard: Blocked access',
+        body: `${args.domain} was blocked. 💡 ${tip}`,
+        data: {
+          domain: args.domain,
+          category: args.category,
+          type: 'blocked',
+        },
+      }))
+    )
   },
 })
 
-// Get all push tokens (internal)
-export const getAllTokens = query({
-  args: {},
-  handler: async (ctx) => {
-    return await ctx.db.query('push_tokens').collect()
+// Atomically check and record the last notification timestamp for a domain.
+// Returns true when the notification should be sent, false when debounced.
+export const checkAndSetDebounce = internalMutation({
+  args: { domain: v.string() },
+  handler: async (ctx, args) => {
+    const key = `notif_last_${args.domain}`
+    const now = Date.now()
+
+    const existing = await ctx.db
+      .query('sync_state')
+      .withIndex('by_key', (q) => q.eq('key', key))
+      .first()
+
+    if (existing) {
+      const lastSent = parseInt(existing.value, 10)
+      if (now - lastSent < DEBOUNCE_MS) return false
+      await ctx.db.patch(existing._id, { value: String(now) })
+    } else {
+      await ctx.db.insert('sync_state', { key, value: String(now) })
+    }
+
+    return true
   },
 })

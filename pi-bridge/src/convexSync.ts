@@ -1,10 +1,13 @@
 import { getConvexHttpUrl } from './config.js'
 import { type DnsLogEntry } from './localDb.js'
 
-export async function pushDnsEvents(events: DnsLogEntry[]): Promise<{
+export interface PushDnsEventsResult {
   ok: boolean
   count: number
-}> {
+  blockedCount: number
+}
+
+export async function pushDnsEvents(events: DnsLogEntry[]): Promise<PushDnsEventsResult> {
   const url = `${getConvexHttpUrl()}/dns-events`
 
   const response = await fetch(url, {
@@ -24,10 +27,11 @@ export async function pushDnsEvents(events: DnsLogEntry[]): Promise<{
 
   if (!response.ok) {
     console.error('Failed to push DNS events:', response.status)
-    return { ok: false, count: 0 }
+    return { ok: false, count: 0, blockedCount: 0 }
   }
 
-  return (await response.json()) as { ok: boolean; count: number }
+  const result = (await response.json()) as PushDnsEventsResult
+  return result
 }
 
 export async function updateSyncCursor(value: string): Promise<void> {

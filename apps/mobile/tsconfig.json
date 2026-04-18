@@ -16,5 +16,5 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src", "app.json"]
+  "include": ["src", "src/types", "app.json"]
 }

@@ -1,5 +1,7 @@
-import { action, query } from './_generated/server'
+import { action, internalMutation, internalQuery } from './_generated/server'
+import { internal } from './_generated/api'
 import { v } from 'convex/values'
+import { generateAIResponse } from './lib/ai'
 
 // Static fallback tips per category
 const FALLBACK_TIPS: Record<string, string> = {
@@ -17,7 +19,7 @@ const FALLBACK_TIPS: Record<string, string> = {
     'A website was blocked. Consider using this as an opportunity to discuss online safety.',
 }
 
-// Get a cached tip or generate one
+// Get a cached tip or generate one via AI
 export const getTip = action({
   args: {
     domain: v.string(),
@@ -28,20 +30,23 @@ export const getTip = action({
     const cached = await ctx.runQuery(internal.tips.getCachedTip, {
       category: args.category,
     })
-
     if (cached) return cached
 
-    // Generate via AI
+    // Generate via AI (falls back to static tip on failure)
     const tip = await generateTip(args.domain, args.category)
 
-    // Cache it (via internal mutation would be ideal but actions can't run mutations directly)
-    // For now, return the tip and cache it on next call
+    // Persist to cache
+    await ctx.runMutation(internal.tips.cacheTip, {
+      category: args.category,
+      tip,
+    })
+
     return tip
   },
 })
 
-// Get cached tip
-export const getCachedTip = query({
+// Get cached tip (internal)
+export const getCachedTip = internalQuery({
   args: { category: v.string() },
   handler: async (ctx, args) => {
     const cached = await ctx.db
@@ -51,7 +56,7 @@ export const getCachedTip = query({
 
     if (!cached) return null
 
-    // Cache for 24 hours
+    // Cache TTL: 24 hours
     const cacheAge = Date.now() - cached.generatedAt
     if (cacheAge > 24 * 60 * 60 * 1000) return null
 
@@ -59,7 +64,28 @@ export const getCachedTip = query({
   },
 })
 
-// AI tip generation with fallback
+// Upsert a tip in the cache (internal)
+export const cacheTip = internalMutation({
+  args: { category: v.string(), tip: v.string() },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query('cached_tips')
+      .withIndex('by_category', (q) => q.eq('category', args.category))
+      .first()
+
+    if (existing) {
+      await ctx.db.patch(existing._id, { tip: args.tip, generatedAt: Date.now() })
+    } else {
+      await ctx.db.insert('cached_tips', {
+        category: args.category,
+        tip: args.tip,
+        generatedAt: Date.now(),
+      })
+    }
+  },
+})
+
+// AI tip generation with static fallback
 async function generateTip(domain: string, category: string): Promise<string> {
   const prompt = `You are a family counseling assistant. A parent's device just blocked access to "${domain}" (category: ${category}). 
 
@@ -69,47 +95,6 @@ Example: "Your child tried to open Instagram during homework time. You might say
 
 Your response should be just the tip text, nothing else.`
 
-  try {
-    // Try Perplexity/OpenAI API
-    const apiKey = process.env.PERPLEXITY_API_KEY ?? process.env.OPENAI_API_KEY
-    const apiBase = process.env.PERPLEXITY_API_KEY
-      ? 'https://api.perplexity.ai/chat/completions'
-      : 'https://api.openai.com/v1/chat/completions'
-
-    if (!apiKey) {
-      return FALLBACK_TIPS[category] ?? FALLBACK_TIPS['default']
-    }
-
-    const response = await fetch(apiBase, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: process.env.PERPLEXITY_API_KEY
-          ? 'sonar'
-          : 'gpt-4o-mini',
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 150,
-        temperature: 0.7,
-      }),
-    })
-
-    if (!response.ok) {
-      console.error('AI API error:', response.status)
-      return FALLBACK_TIPS[category] ?? FALLBACK_TIPS['default']
-    }
-
-    const data = (await response.json()) as {
-      choices: Array<{ message: { content: string } }>
-    }
-    return (
-      data.choices[0]?.message?.content?.trim() ??
-      FALLBACK_TIPS[category] ??
-      FALLBACK_TIPS['default']
-    )
-  } catch {
-    return FALLBACK_TIPS[category] ?? FALLBACK_TIPS['default']
-  }
+  const result = await generateAIResponse(prompt)
+  return result ?? (FALLBACK_TIPS[category] ?? FALLBACK_TIPS['default'])
 }

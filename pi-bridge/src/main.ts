@@ -3,6 +3,7 @@ import { authenticate, getNetworkDevices } from './piHoleClient.js'
 import { getLogsSince, getMaxId } from './localDb.js'
 import { pushDnsEvents, updateSyncCursor } from './convexSync.js'
 import { syncRules } from './ruleSync.js'
+import { writeInfluxStats } from './influxLogger.js'
 
 let dnsCursor: number = 0
 let isShuttingDown = false
@@ -69,6 +70,20 @@ async function syncDnsLogs() {
         // Update cursor to last processed ID
         dnsCursor = batch[batch.length - 1].id
         await updateSyncCursor(String(dnsCursor))
+        if (result.blockedCount > 0) {
+          console.log(`[dnsSync] ${result.blockedCount} blocked event(s) — notifications triggered`)
+        }
+
+        // Write aggregate stats to InfluxDB for Grafana
+        const perDevice = new Map<string, number>()
+        for (const entry of batch) {
+          perDevice.set(entry.clientMac, (perDevice.get(entry.clientMac) ?? 0) + 1)
+        }
+        await writeInfluxStats({
+          totalQueries: batch.length,
+          blockedQueries: batch.filter((e) => e.status === 'blocked').length,
+          perDevice,
+        })
       } else {
         console.error('[dnsSync] Batch push failed, will retry next cycle')
         break

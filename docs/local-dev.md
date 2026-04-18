@@ -99,12 +99,20 @@ Subsequent requests: pass `?sid=<SID>` as query parameter OR `Sid: <SID>` as hea
 | GET | `/api/network` | Network devices table |
 | POST | `/api/auth` | Authenticate |
 
-### Broken Endpoints (Pi-hole v6 bug)
+### Domain Management (Working ✅)
 
-| Method | Endpoint | Issue | Workaround |
-|--------|----------|-------|------------|
-| POST | `/api/domains` | `uri_error: "Specify list to modify more precisely"` | `docker exec <container> pihole deny <domain>` |
-| DELETE | `/api/domains/:id` | Same error | `docker exec <container> pihole allow <domain>` |
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/domains/deny/exact` | Add domain to deny list. Body: `{"domain":"x.com","comment":"..."}` |
+| POST | `/api/domains/deny/exact` | Add multiple: `{"domain":["a.com","b.com"]}` |
+| DELETE | `/api/domains/deny/exact/<domain>` | Remove domain from deny list. Returns 204 on success |
+| POST | `/api/domains/allow/exact` | Add domain to allow list |
+| DELETE | `/api/domains/allow/exact/<domain>` | Remove from allow list |
+
+> ⚠️ **Important**: The endpoint `/api/domains` is **read-only** (aggregate view).
+> To add/remove domains you MUST use the specific list type:
+> `/api/domains/deny/exact` or `/api/domains/allow/exact`.
+> Using `/api/domains` for POST/DELETE returns `uri_error`.
 
 ### DNS Resolution Test
 ```bash
@@ -152,5 +160,8 @@ docker exec piguard-pihole-dev dig google.com @127.0.0.1 +short
 - Pi-hole DNS runs on port 5354 (not 53) because macOS uses port 5353 for mDNS
 - To use Pi-hole as your DNS resolver: `sudo networksetup -setdnsservers Wi-Fi 127.0.0.1` then `sudo networksetup -setdnsservers Wi-Fi empty` to revert
 - The Pi bridge's FTL SQLite reader won't work on macOS (the DB is inside Docker) — use the API-based query reader instead
-- `POST /api/domains` and `DELETE /api/domains/:id` are broken in Pi-hole v6 — all domain blocking/unblocking uses `docker exec pihole deny/allow` CLI
+- `POST /api/domains/deny/exact` — correct endpoint for adding blocked domains (body: `{"domain":"x.com"}`)
+- `DELETE /api/domains/deny/exact/<domain>` — correct endpoint for removing blocked domains
+- `/api/domains` is read-only aggregate — POST/DELETE to it returns `uri_error` (use specific list type instead)
+- CLI `docker exec pihole deny/allow` — kept as fallback in case API changes
 - Node 22+ required for Convex CLI — use nvm: `PATH="$HOME/.config/nvm/versions/node/v22.19.0/bin:$PATH"`

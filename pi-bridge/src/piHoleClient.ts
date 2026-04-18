@@ -29,7 +29,7 @@ export async function authenticate(): Promise<string> {
   return sessionId
 }
 
-// Append sid to URL
+// Build authenticated URL
 function authUrl(path: string): string {
   const sep = path.includes('?') ? '&' : '?'
   return `${config.piHoleUrl}${path}${sep}sid=${sessionId}`
@@ -42,42 +42,33 @@ function getHeaders(): Record<string, string> {
   }
 }
 
-// Add a domain to the denylist
-// Uses docker exec CLI as fallback because the POST /api/domains endpoint
-// has a known issue with the "list" parameter in some Pi-hole v6 versions
+// Add a domain to the deny list
+// Uses the correct Pi-hole v6 endpoint: POST /api/domains/deny/exact
 export async function blockDomain(domain: string): Promise<void> {
-  // Try API first
-  try {
-    const response = await fetch(
-      authUrl('/api/domains?type=deny&kind=exact'),
-      {
-        method: 'POST',
-        headers: getHeaders(),
-        body: JSON.stringify({ domains: [domain], comment: 'PiGuard' }),
-      }
-    )
+  if (!sessionId) await authenticate()
 
-    if (response.ok) {
-      console.log(`[piHole] Blocked via API: ${domain}`)
-      return
-    }
+  const response = await fetch(authUrl('/api/domains/deny/exact'), {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify({ domain, comment: 'PiGuard' }),
+  })
 
-    // If API fails with uri_error, fall back to CLI
-    if (response.status === 400) {
-      return blockDomainCli(domain)
-    }
-
-    if (response.status === 401) {
-      await authenticate()
-      return blockDomain(domain)
-    }
-
-    console.error(`Failed to block ${domain}: ${response.status}`)
-  } catch {
-    return blockDomainCli(domain)
+  if (response.ok) {
+    console.log(`[piHole] Blocked via API: ${domain}`)
+    return
   }
+
+  if (response.status === 401) {
+    await authenticate()
+    return blockDomain(domain)
+  }
+
+  // API failed, fall back to CLI
+  console.warn(`[piHole] API block failed (${response.status}), falling back to CLI`)
+  blockDomainCli(domain)
 }
 
+// CLI fallback for blocking
 function blockDomainCli(domain: string): void {
   try {
     if (config.piHoleDockerContainer) {
@@ -94,38 +85,35 @@ function blockDomainCli(domain: string): void {
   }
 }
 
-// Remove a domain from the denylist
-// DELETE /api/domains is also broken in Pi-hole v6, so use CLI
+// Remove a domain from the deny list
+// Uses the correct Pi-hole v6 endpoint: DELETE /api/domains/deny/exact/<domain>
 export async function unblockDomain(domain: string): Promise<void> {
-  try {
-    // Try API delete first
-    const domains = await getBlockedDomainsRaw()
-    const match = domains.find((d) => d.domain === domain)
-    if (!match) return
+  if (!sessionId) await authenticate()
 
-    const response = await fetch(authUrl(`/api/domains/${match.id}`), {
+  const response = await fetch(
+    authUrl(`/api/domains/deny/exact/${encodeURIComponent(domain)}`),
+    {
       method: 'DELETE',
       headers: getHeaders(),
-    })
-
-    if (response.ok) {
-      console.log(`[piHole] Unblocked via API: ${domain}`)
-      return
     }
+  )
 
-    // Fallback to CLI
-    if (response.status === 401) {
-      await authenticate()
-      return unblockDomain(domain)
-    }
-
-    // API delete failed, use CLI
-    unblockDomainCli(domain)
-  } catch {
-    unblockDomainCli(domain)
+  if (response.ok || response.status === 204) {
+    console.log(`[piHole] Unblocked via API: ${domain}`)
+    return
   }
+
+  if (response.status === 401) {
+    await authenticate()
+    return unblockDomain(domain)
+  }
+
+  // API failed, fall back to CLI
+  console.warn(`[piHole] API unblock failed (${response.status}), falling back to CLI`)
+  unblockDomainCli(domain)
 }
 
+// CLI fallback for unblocking
 function unblockDomainCli(domain: string): void {
   try {
     if (config.piHoleDockerContainer) {
@@ -142,32 +130,26 @@ function unblockDomainCli(domain: string): void {
   }
 }
 
-// Get all currently blocked domains (raw with IDs)
-async function getBlockedDomainsRaw(): Promise<
-  Array<{ id: number; domain: string }>
-> {
-  const response = await fetch(authUrl('/api/domains?type=deny'), {
+// Get all currently blocked domains
+export async function getBlockedDomains(): Promise<string[]> {
+  if (!sessionId) await authenticate()
+
+  const response = await fetch(authUrl('/api/domains/deny/exact'), {
     headers: getHeaders(),
   })
 
   if (response.status === 401) {
     await authenticate()
-    return getBlockedDomainsRaw()
+    return getBlockedDomains()
   }
 
   if (!response.ok) return []
 
   const data = (await response.json()) as {
-    domains: Array<{ id: number; domain: string }>
+    domains: Array<{ domain: string }>
   }
 
-  return data.domains
-}
-
-// Get all currently blocked domain names
-export async function getBlockedDomains(): Promise<string[]> {
-  const raw = await getBlockedDomainsRaw()
-  return raw.map((d) => d.domain)
+  return data.domains.map((d) => d.domain)
 }
 
 // Get DNS queries from the API
@@ -175,11 +157,14 @@ export async function getQueries(count = 100): Promise<
   Array<{
     domain: string
     clientIp: string
+    clientName: string
     status: string
     type: string
     timestamp: number
   }>
 > {
+  if (!sessionId) await authenticate()
+
   const response = await fetch(authUrl(`/api/queries?count=${count}`), {
     headers: getHeaders(),
   })
@@ -194,7 +179,7 @@ export async function getQueries(count = 100): Promise<
   const data = (await response.json()) as {
     queries: Array<{
       domain: string
-      client: { ip: string }
+      client: { ip: string; name?: string }
       status: string
       type: string
       time: number
@@ -204,6 +189,7 @@ export async function getQueries(count = 100): Promise<
   return data.queries.map((q) => ({
     domain: q.domain,
     clientIp: q.client.ip,
+    clientName: q.client.name ?? '',
     status: mapStatus(q.status),
     type: q.type,
     timestamp: q.time,
@@ -237,6 +223,8 @@ export async function getNetworkDevices(): Promise<
     lastQuery: number
   }>
 > {
+  if (!sessionId) await authenticate()
+
   const response = await fetch(authUrl('/api/network'), {
     headers: getHeaders(),
   })

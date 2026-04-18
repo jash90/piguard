@@ -1,0 +1,135 @@
+import { httpRouter } from 'convex/server'
+import { httpAction } from './_generated/server'
+import { internal } from './_generated/api'
+
+const http = httpRouter()
+
+// Bulk DNS log ingestion from Pi bridge
+http.route({
+  path: '/dns-events',
+  method: 'POST',
+  handler: httpAction(async (ctx, request) => {
+    const body = (await request.json()) as {
+      events: Array<{
+        macAddress: string
+        ipAddress: string
+        hostname?: string
+        domain: string
+        queryType: string
+        status: string
+        timestamp: number
+      }>
+    }
+
+    if (!body.events || !Array.isArray(body.events)) {
+      return new Response(JSON.stringify({ error: 'Missing events array' }), {
+        status: 400,
+      })
+    }
+
+    for (const event of body.events) {
+      // Find or create device by MAC address
+      const device = await ctx.runMutation(internal.devices.findOrCreate, {
+        macAddress: event.macAddress,
+        ipAddress: event.ipAddress,
+        hostname: event.hostname,
+        timestamp: event.timestamp,
+      })
+
+      // Insert DNS log entry
+      await ctx.runMutation(internal.dnsLogs.insert, {
+        deviceId: device,
+        domain: event.domain,
+        clientIp: event.ipAddress,
+        queryType: event.queryType,
+        status: event.status,
+        timestamp: event.timestamp,
+      })
+    }
+
+    return new Response(JSON.stringify({ ok: true, count: body.events.length }))
+  }),
+})
+
+// Active block rules for Pi bridge to sync
+http.route({
+  path: '/block-rules',
+  method: 'GET',
+  handler: httpAction(async (ctx) => {
+    const rules = await ctx.runQuery(internal.blockRules.getActive)
+
+    // Expand social_media rules into concrete domains
+    const expandedDomains: string[] = []
+    const plainDomains: string[] = []
+
+    for (const rule of rules) {
+      if (rule.type === 'social_media') {
+        // Look up the platform's domains
+        const platform = await ctx.runQuery(
+          internal.blockRules.getPlatformByName,
+          { name: rule.value }
+        )
+        if (platform) {
+          expandedDomains.push(...platform.domains)
+        }
+      } else if (rule.type === 'domain') {
+        plainDomains.push(rule.value)
+      }
+    }
+
+    return new Response(
+      JSON.stringify({
+        domains: [...new Set([...plainDomains, ...expandedDomains])],
+        rules,
+      })
+    )
+  }),
+})
+
+// Device heartbeat
+http.route({
+  path: '/device-heartbeat',
+  method: 'POST',
+  handler: httpAction(async (ctx, request) => {
+    const body = (await request.json()) as {
+      devices: Array<{
+        macAddress: string
+        ipAddress: string
+        hostname?: string
+        isOnline: boolean
+      }>
+    }
+
+    for (const device of body.devices) {
+      await ctx.runMutation(internal.devices.updateStatus, {
+        macAddress: device.macAddress,
+        ipAddress: device.ipAddress,
+        hostname: device.hostname,
+        isOnline: device.isOnline,
+      })
+    }
+
+    return new Response(JSON.stringify({ ok: true }))
+  }),
+})
+
+// Sync status
+http.route({
+  path: '/sync-status',
+  method: 'POST',
+  handler: httpAction(async (ctx, request) => {
+    const body = (await request.json()) as {
+      key: string
+      value: string
+    }
+
+    await ctx.runMutation(internal.dnsLogs.updateSyncCursor, {
+      key: body.key,
+      value: body.value,
+    })
+
+    return new Response(JSON.stringify({ ok: true }))
+  }),
+})
+
+export default http

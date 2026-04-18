@@ -25,6 +25,12 @@ export const config = {
   ftlDbPath:
     process.env.FTL_DB_PATH ??
     '/etc/pihole/pihole-FTL.db',
+
+  // InfluxDB v2 (optional — for Grafana dashboards)
+  influxDbUrl: process.env.INFLUXDB_URL ?? '',
+  influxDbToken: process.env.INFLUXDB_TOKEN ?? '',
+  influxDbOrg: process.env.INFLUXDB_ORG ?? 'piguard',
+  influxDbBucket: process.env.INFLUXDB_BUCKET ?? 'dns_stats',
 }
 
 // Derive HTTP action URL from Convex URL

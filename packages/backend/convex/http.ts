@@ -1,6 +1,7 @@
 import { httpRouter } from 'convex/server'
 import { httpAction } from './_generated/server'
 import { internal } from './_generated/api'
+import { getCategoryForDomain } from './lib/categories'
 
 const http = httpRouter()
 
@@ -27,6 +28,9 @@ http.route({
       })
     }
 
+    // Collect unique blocked domains for notification (deduplicated within batch)
+    const blockedDomains = new Map<string, string | undefined>() // domain → category
+
     for (const event of body.events) {
       // Find or create device by MAC address
       const device = await ctx.runMutation(internal.devices.findOrCreate, {
@@ -45,9 +49,26 @@ http.route({
         status: event.status,
         timestamp: event.timestamp,
       })
+
+      // Track blocked domains for notifications
+      if (event.status === 'blocked' && !blockedDomains.has(event.domain)) {
+        const category = getCategoryForDomain(event.domain) ?? undefined
+        blockedDomains.set(event.domain, category)
+      }
     }
 
-    return new Response(JSON.stringify({ ok: true, count: body.events.length }))
+    // Fire notifications for each unique blocked domain (debouncing is handled inside)
+    for (const [domain, category] of blockedDomains) {
+      await ctx.runAction(internal.notifications.notifyOnBlocked, { domain, category })
+    }
+
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        count: body.events.length,
+        blockedCount: blockedDomains.size,
+      })
+    )
   }),
 })
 

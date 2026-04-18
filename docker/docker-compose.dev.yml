@@ -21,14 +21,15 @@ services:
       timeout: 5s
       retries: 10
 
-  # DNS proxy — forwards host:5354 to pi-hole:53
-  # Workaround for Docker Desktop macOS UDP forwarding issues
+  # DNS proxy — forwards host port 53 to pi-hole:53
+  # Uses alpine/socat on the same Docker network to work around
+  # Docker Desktop macOS UDP DNS forwarding issues
   dns-proxy:
     container_name: piguard-dns-proxy
     image: alpine/socat
     ports:
-      - "5354:53/tcp"
-      - "5354:53/udp"
+      - "53:53/tcp"
+      - "53:53/udp"
     networks:
       - piguard
     restart: unless-stopped

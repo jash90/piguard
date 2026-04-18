@@ -1,0 +1,57 @@
+# Local macOS development — Pi-hole + InfluxDB + Grafana
+services:
+  pi-hole:
+    container_name: piguard-pihole-dev
+    image: pihole/pihole:latest
+    ports:
+      - "8080:80/tcp"    # Pi-hole admin UI (avoid conflict with Next.js on 3000)
+      - "5354:53/tcp"
+      - "5354:53/udp"
+    environment:
+      - FTLCONF_webserver_api_password=pihole123
+      - FTLCONF_webserver_port=80
+      - FTLCONF_webserver_api_max_sessions=20
+    volumes:
+      - pihole-etc:/etc/pihole
+      - pihole-dnsmasq:/etc/dnsmasq.d
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/admin/"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  influxdb:
+    container_name: piguard-influxdb-dev
+    image: influxdb:2.7
+    ports:
+      - "8086:8086"
+    volumes:
+      - influxdb-data:/var/lib/influxdb2
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=admin
+      - DOCKER_INFLUXDB_INIT_PASSWORD=admin12345678
+      - DOCKER_INFLUXDB_INIT_ORG=piguard
+      - DOCKER_INFLUXDB_INIT_BUCKET=dns_logs
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=my-super-secret-influx-token
+    restart: unless-stopped
+
+  grafana:
+    container_name: piguard-grafana-dev
+    image: grafana/grafana:latest
+    ports:
+      - "3002:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+    depends_on:
+      - influxdb
+    restart: unless-stopped
+
+volumes:
+  pihole-etc:
+  pihole-dnsmasq:
+  influxdb-data:
+  grafana-data:

@@ -2,6 +2,7 @@ export const config = {
   // Pi-hole API
   piHoleUrl: process.env.PIHOLE_URL ?? 'http://pi.hole',
   piHolePassword: process.env.PIHOLE_PASSWORD ?? '',
+  piHoleDockerContainer: process.env.PIHOLE_DOCKER_CONTAINER ?? '', // e.g. 'piguard-pihole-dev'
 
   // Convex
   convexUrl: process.env.CONVEX_URL ?? '',

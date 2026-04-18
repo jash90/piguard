@@ -7,15 +7,16 @@ export const create = mutation({
     name: v.string(),
     avatarColor: v.string(),
     defaultBlockCategories: v.optional(v.array(v.string())),
+    _parentId: v.optional(v.string()), // internal: for seeding
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity()
-    if (!identity) throw new Error('Not authenticated')
+    const parentId = args._parentId ?? identity?.subject ?? 'seed-user'
 
     return await ctx.db.insert('children_profiles', {
       name: args.name,
       avatarColor: args.avatarColor,
-      parentId: identity.subject,
+      parentId,
       defaultBlockCategories: args.defaultBlockCategories,
     })
   },

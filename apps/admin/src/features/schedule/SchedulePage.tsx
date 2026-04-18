@@ -40,7 +40,7 @@ const EMPTY_FORM: ScheduleFormState = {
 }
 
 export function SchedulePage() {
-  const children = useQuery(api.children.list, {})
+  const children = useQuery(api.children.listAll)
   const [selectedChild, setSelectedChild] = useState<string>('')
 
   const schedules = useQuery(

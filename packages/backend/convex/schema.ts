@@ -92,4 +92,19 @@ export default defineSchema({
     tip: v.string(),
     generatedAt: v.number(),
   }).index('by_category', ['category']),
+
+  // Watched domains — monitored but NOT blocked
+  // When a child visits one of these, the parent gets a notification
+  watched_domains: defineTable({
+    domain: v.string(),
+    label: v.optional(v.string()),     // e.g. 'Reddit', 'Discord'
+    childProfileId: v.optional(v.id('children_profiles')),  // null = all children
+    isActive: v.boolean(),
+    notifyParent: v.boolean(),          // always true for watched domains
+    createdBy: v.string(),
+    createdAt: v.number(),
+  })
+    .index('by_active', ['isActive'])
+    .index('by_child', ['childProfileId'])
+    .index('by_domain', ['domain']),
 })

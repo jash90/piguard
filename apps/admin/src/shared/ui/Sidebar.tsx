@@ -8,16 +8,16 @@ import {
   Users,
   Monitor,
   Clock,
-  Share2,
   Menu,
   X,
   LayoutDashboard,
+  Eye,
 } from 'lucide-react'
 
 const navItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/blocklist', label: 'Blocklist', icon: ShieldCheck },
-  { href: '/social', label: 'Social Media', icon: Share2 },
+  { href: '/watched', label: 'Watched Domains', icon: Eye },
   { href: '/children', label: 'Children', icon: Users },
   { href: '/devices', label: 'Devices', icon: Monitor },
   { href: '/schedule', label: 'Schedules', icon: Clock },

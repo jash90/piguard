@@ -2,12 +2,12 @@
 
 import { useQuery } from 'convex/react'
 import { api } from '@/shared/lib/api'
-import { Shield, Wifi, Ban, Clock, Users, Smartphone } from 'lucide-react'
+import { Shield, Wifi, Ban, Clock, Users, Smartphone, Eye } from 'lucide-react'
 
 export default function AdminDashboard() {
   const devices = useQuery(api.devices.list)
-  const children = useQuery(api.children.list)
-  const rules = useQuery(api.blockRules.list)
+  const children = useQuery(api.children.listAll)
+  const rules = useQuery(api.blockRules.list, {})
   const stats = useQuery(api.dnsLogs.getStats)
 
   const onlineDevices = (devices as any[])?.filter((d: any) => d.isOnline).length ?? 0
@@ -117,6 +117,16 @@ export default function AdminDashboard() {
             <div>
               <p className="font-medium">Devices</p>
               <p className="text-xs text-slate-500">Assign to children</p>
+            </div>
+          </a>
+          <a
+            href="/watched"
+            className="flex items-center gap-3 bg-white rounded-lg border p-4 hover:bg-slate-50 transition-colors"
+          >
+            <Eye className="h-5 w-5 text-amber-500" />
+            <div>
+              <p className="font-medium">Watched Domains</p>
+              <p className="text-xs text-slate-500">Monitor without blocking</p>
             </div>
           </a>
           <a

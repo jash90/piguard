@@ -20,7 +20,7 @@ interface ChildProfile {
 
 export function DevicesPage() {
   const devices = useQuery(api.devices.list, {})
-  const children = useQuery(api.children.list, {})
+  const children = useQuery(api.children.listAll)
   const assignDevice = useMutation(api.devices.assignToChild)
 
   async function handleAssign(deviceId: string, childProfileId: string) {

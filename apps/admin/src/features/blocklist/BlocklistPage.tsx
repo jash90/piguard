@@ -24,7 +24,7 @@ interface ChildProfile {
 
 export function BlocklistPage() {
   const rules = useQuery(api.blockRules.list, {})
-  const children = useQuery(api.children.list, {})
+  const children = useQuery(api.children.listAll)
   const createRule = useMutation(api.blockRules.create)
   const updateRule = useMutation(api.blockRules.update)
   const removeRule = useMutation(api.blockRules.remove)

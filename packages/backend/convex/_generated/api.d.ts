@@ -24,6 +24,7 @@ import type * as schedules from "../schedules.js";
 import type * as schedulesCron from "../schedulesCron.js";
 import type * as social_platforms from "../social_platforms.js";
 import type * as tips from "../tips.js";
+import type * as watched_domains from "../watched_domains.js";
 
 import type {
   ApiFromModules,
@@ -48,6 +49,7 @@ declare const fullApi: ApiFromModules<{
   schedulesCron: typeof schedulesCron;
   social_platforms: typeof social_platforms;
   tips: typeof tips;
+  watched_domains: typeof watched_domains;
 }>;
 
 /**

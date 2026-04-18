@@ -47,6 +47,53 @@ export const notifyOnBlocked = internalAction({
   },
 })
 
+// Triggered when a child visits a WATCHED (not blocked) domain.
+// Different title/body so parent can distinguish from blocked alerts.
+export const notifyOnWatched = internalAction({
+  args: {
+    domain: v.string(),
+    label: v.optional(v.string()),
+    childProfileId: v.optional(v.id('children_profiles')),
+  },
+  handler: async (ctx, args) => {
+    // Debounce using the same mechanism but different key prefix
+    const allowed = await ctx.runMutation(internal.notifications.checkAndSetDebounce, {
+      domain: `watched_${args.domain}`,
+    })
+    if (!allowed) return
+
+    // Resolve child name if assigned
+    let childName: string | undefined
+    if (args.childProfileId) {
+      const child = await ctx.runQuery(internal.children.get, {
+        profileId: args.childProfileId,
+      })
+      childName = child?.name
+    }
+
+    const tokens = await ctx.runQuery(internal.push_tokens.getAllTokens)
+    if (tokens.length === 0) return
+
+    const who = childName ? `${childName} visited` : 'Activity on'
+    const label = args.label ?? args.domain
+
+    await sendPushNotifications(
+      tokens.map((t) => ({
+        to: t.token,
+        sound: 'default' as const,
+        title: `PiGuard: ${who} ${label}`,
+        body: `${args.domain} was accessed. This domain is on your watchlist.`,
+        data: {
+          domain: args.domain,
+          label: args.label,
+          childProfileId: args.childProfileId,
+          type: 'watched',
+        },
+      }))
+    )
+  },
+})
+
 // Atomically check and record the last notification timestamp for a domain.
 // Returns true when the notification should be sent, false when debounced.
 export const checkAndSetDebounce = internalMutation({

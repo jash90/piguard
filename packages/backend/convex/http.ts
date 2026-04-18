@@ -55,6 +55,20 @@ http.route({
         const category = getCategoryForDomain(event.domain) ?? undefined
         blockedDomains.set(event.domain, category)
       }
+
+      // Also check watched domains — notify parent even if NOT blocked
+      if (event.status !== 'blocked') {
+        const watched = await ctx.runQuery(internal.watched_domains.checkMatch, {
+          domain: event.domain,
+        })
+        for (const w of watched) {
+          await ctx.runAction(internal.notifications.notifyOnWatched, {
+            domain: event.domain,
+            label: w.label,
+            childProfileId: w.childProfileId ?? undefined,
+          })
+        }
+      }
     }
 
     // Fire notifications for each unique blocked domain (debouncing is handled inside)

@@ -19,7 +19,7 @@ interface ChildProfile {
 
 export function SocialMediaPage() {
   const platforms = useQuery(api.social_platforms.list, {})
-  const children = useQuery(api.children.list, {})
+  const children = useQuery(api.children.listAll)
   const seedPlatforms = useMutation(api.social_platforms.seedPredefined)
   const addCustom = useMutation(api.social_platforms.addCustom)
   const toggleSocial = useMutation(api.blockRules.setSocialMediaActive)

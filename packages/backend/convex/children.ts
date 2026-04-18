@@ -91,6 +91,14 @@ export const list = query({
   },
 })
 
+// List ALL children profiles (no auth — for admin panel)
+export const listAll = query({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db.query('children_profiles').collect()
+  },
+})
+
 // Get a single profile
 export const get = query({
   args: { profileId: v.id('children_profiles') },

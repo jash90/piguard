@@ -28,7 +28,7 @@ const AVATAR_COLORS = [
 ]
 
 export function ChildrenPage() {
-  const children = useQuery(api.children.list, {})
+  const children = useQuery(api.children.listAll)
   const devices = useQuery(api.devices.list, {})
   const createChild = useMutation(api.children.create)
   const updateChild = useMutation(api.children.update)

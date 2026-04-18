@@ -21,14 +21,14 @@ export async function syncRules(): Promise<void> {
   const newDomains = new Set(data.domains)
 
   // Domains to add (in Convex but not in Pi-hole)
-  const toBlock = newDomains.difference(lastSyncedDomains)
+  const toBlock = [...newDomains].filter((d) => !lastSyncedDomains.has(d))
   for (const domain of toBlock) {
     await piHole.blockDomain(domain)
     console.log(`[ruleSync] Blocked: ${domain}`)
   }
 
   // Domains to remove (in Pi-hole but no longer in Convex)
-  const toUnblock = lastSyncedDomains.difference(newDomains)
+  const toUnblock = [...lastSyncedDomains].filter((d) => !newDomains.has(d))
   for (const domain of toUnblock) {
     await piHole.unblockDomain(domain)
     console.log(`[ruleSync] Unblocked: ${domain}`)

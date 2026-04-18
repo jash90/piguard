@@ -95,27 +95,50 @@ function blockDomainCli(domain: string): void {
 }
 
 // Remove a domain from the denylist
+// DELETE /api/domains is also broken in Pi-hole v6, so use CLI
 export async function unblockDomain(domain: string): Promise<void> {
-  // Find the domain ID first
-  const domains = await getBlockedDomainsRaw()
-  const match = domains.find((d) => d.domain === domain)
+  try {
+    // Try API delete first
+    const domains = await getBlockedDomainsRaw()
+    const match = domains.find((d) => d.domain === domain)
+    if (!match) return
 
-  if (!match) return
+    const response = await fetch(authUrl(`/api/domains/${match.id}`), {
+      method: 'DELETE',
+      headers: getHeaders(),
+    })
 
-  const response = await fetch(authUrl(`/api/domains/${match.id}`), {
-    method: 'DELETE',
-    headers: getHeaders(),
-  })
+    if (response.ok) {
+      console.log(`[piHole] Unblocked via API: ${domain}`)
+      return
+    }
 
-  if (response.status === 401) {
-    await authenticate()
-    return unblockDomain(domain)
+    // Fallback to CLI
+    if (response.status === 401) {
+      await authenticate()
+      return unblockDomain(domain)
+    }
+
+    // API delete failed, use CLI
+    unblockDomainCli(domain)
+  } catch {
+    unblockDomainCli(domain)
   }
+}
 
-  if (!response.ok) {
-    console.error(`Failed to unblock ${domain}:`, response.status)
-  } else {
-    console.log(`[piHole] Unblocked: ${domain}`)
+function unblockDomainCli(domain: string): void {
+  try {
+    if (config.piHoleDockerContainer) {
+      execSync(
+        `docker exec ${config.piHoleDockerContainer} pihole allow ${domain}`,
+        { stdio: 'pipe' }
+      )
+    } else {
+      execSync(`pihole allow ${domain}`, { stdio: 'pipe' })
+    }
+    console.log(`[piHole] Unblocked via CLI: ${domain}`)
+  } catch (error) {
+    console.error(`Failed to unblock ${domain} via CLI:`, error)
   }
 }
 

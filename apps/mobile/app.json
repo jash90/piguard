@@ -1,0 +1,15 @@
+{
+  "expo": {
+    "name": "PiGuard",
+    "slug": "piguard",
+    "version": "1.0.0",
+    "scheme": "piguard",
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": ["expo-router", "expo-notifications"],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

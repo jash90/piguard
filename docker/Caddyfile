@@ -1,0 +1,14 @@
+# Reverse proxy for Pi-hosted web dashboard
+:80 {
+    reverse_proxy web:3000
+}
+
+# Pi-hole admin on port 8080
+:8080 {
+    reverse_proxy pi-hole:80
+}
+
+# Grafana on port 3001
+:3001 {
+    reverse_proxy grafana:3000
+}

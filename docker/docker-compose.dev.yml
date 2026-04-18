@@ -4,9 +4,9 @@ services:
     container_name: piguard-pihole-dev
     image: pihole/pihole:latest
     ports:
-      - "8080:80/tcp"    # Pi-hole admin UI (avoid conflict with Next.js on 3000)
-      - "5354:53/tcp"
-      - "5354:53/udp"
+      - "8080:80/tcp"
+    networks:
+      - piguard
     environment:
       - FTLCONF_webserver_api_password=pihole123
       - FTLCONF_webserver_port=80
@@ -21,11 +21,29 @@ services:
       timeout: 5s
       retries: 10
 
+  # DNS proxy — forwards host:5354 to pi-hole:53
+  # Workaround for Docker Desktop macOS UDP forwarding issues
+  dns-proxy:
+    container_name: piguard-dns-proxy
+    image: alpine/socat
+    ports:
+      - "5354:53/tcp"
+      - "5354:53/udp"
+    networks:
+      - piguard
+    restart: unless-stopped
+    entrypoint: ["sh", "-c", "socat UDP-LISTEN:53,fork,reuseaddr UDP:pi-hole:53 & socat TCP-LISTEN:53,fork,reuseaddr TCP:pi-hole:53 & wait"]
+    depends_on:
+      pi-hole:
+        condition: service_healthy
+
   influxdb:
     container_name: piguard-influxdb-dev
     image: influxdb:2.7
     ports:
       - "8086:8086"
+    networks:
+      - piguard
     volumes:
       - influxdb-data:/var/lib/influxdb2
     environment:
@@ -42,6 +60,8 @@ services:
     image: grafana/grafana:latest
     ports:
       - "3002:3000"
+    networks:
+      - piguard
     volumes:
       - grafana-data:/var/lib/grafana
     environment:
@@ -49,6 +69,9 @@ services:
     depends_on:
       - influxdb
     restart: unless-stopped
+
+networks:
+  piguard:
 
 volumes:
   pihole-etc:

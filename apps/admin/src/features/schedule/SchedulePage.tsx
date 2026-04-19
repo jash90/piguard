@@ -2,8 +2,10 @@
 
 import { useState } from 'react'
 import { useQuery, useMutation } from 'convex/react'
+import { useTranslation } from 'react-i18next'
 import { api } from '@/shared/lib/api'
 import { Clock, Plus, Trash2, Pencil, X, Check } from 'lucide-react'
+import '@/shared/i18n'
 
 interface Schedule {
   _id: string
@@ -20,7 +22,7 @@ interface ChildProfile {
   avatarColor: string
 }
 
-const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+const DAY_KEYS = ['schedule.days.mon', 'schedule.days.tue', 'schedule.days.wed', 'schedule.days.thu', 'schedule.days.fri', 'schedule.days.sat', 'schedule.days.sun']
 const DAY_VALUES = [1, 2, 3, 4, 5, 6, 0]
 
 type Action = 'block' | 'allow' | 'limit'
@@ -40,12 +42,13 @@ const EMPTY_FORM: ScheduleFormState = {
 }
 
 export function SchedulePage() {
+  const { t } = useTranslation()
   const children = useQuery(api.children.listAll)
   const [selectedChild, setSelectedChild] = useState<string>('')
 
   const schedules = useQuery(
     api.schedules.getByChild,
-    selectedChild ? { childProfileId: selectedChild } : 'skip'
+    selectedChild ? { childProfileId: selectedChild } : 'skip',
   )
 
   const createSchedule = useMutation(api.schedules.create)
@@ -58,10 +61,6 @@ export function SchedulePage() {
 
   const [editId, setEditId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState<ScheduleFormState>(EMPTY_FORM)
-
-  function toggleDay(arr: number[], day: number): number[] {
-    return arr.includes(day) ? arr.filter((d) => d !== day) : [...arr, day]
-  }
 
   async function handleCreate() {
     if (!selectedChild || form.daysOfWeek.length === 0) return
@@ -81,14 +80,7 @@ export function SchedulePage() {
     }
   }
 
-  function startEdit(s: {
-    _id: string
-    daysOfWeek: number[]
-    startTime: string
-    endTime: string
-    action: string
-    isActive: boolean
-  }) {
+  function startEdit(s: Schedule) {
     setEditId(s._id)
     setEditForm({
       daysOfWeek: s.daysOfWeek,
@@ -115,33 +107,27 @@ export function SchedulePage() {
   }
 
   async function handleDelete(scheduleId: string) {
-    if (!confirm('Delete this schedule?')) return
+    if (!confirm(t('schedule.deleteConfirm'))) return
     await removeSchedule({ scheduleId })
   }
 
   function formatDays(days: number[]) {
     return days
-      .sort((a, b) => {
-        const ai = DAY_VALUES.indexOf(a)
-        const bi = DAY_VALUES.indexOf(b)
-        return ai - bi
-      })
-      .map((d) => DAYS[DAY_VALUES.indexOf(d)])
+      .slice()
+      .sort((a, b) => DAY_VALUES.indexOf(a) - DAY_VALUES.indexOf(b))
+      .map((d) => t(DAY_KEYS[DAY_VALUES.indexOf(d)]))
       .join(', ')
   }
 
   return (
     <div className="max-w-4xl mx-auto">
-      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
             <Clock size={24} className="text-blue-600" />
-            Schedules
+            {t('schedule.title')}
           </h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Set time-based internet access rules per child
-          </p>
+          <p className="text-sm text-slate-500 mt-1">{t('schedule.subtitle')}</p>
         </div>
         {selectedChild && (
           <button
@@ -149,23 +135,22 @@ export function SchedulePage() {
             className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
           >
             <Plus size={16} />
-            Add Schedule
+            {t('schedule.add')}
           </button>
         )}
       </div>
 
-      {/* Child selector */}
       <div className="mb-6">
         <label className="block text-sm font-medium text-slate-700 mb-1">
-          Select Child
+          {t('schedule.selectChild')}
         </label>
         {children === undefined ? (
-          <p className="text-sm text-slate-400">Loading children…</p>
+          <p className="text-sm text-slate-400">{t('common.loading')}</p>
         ) : children.length === 0 ? (
           <p className="text-sm text-slate-500">
-            No children yet.{' '}
+            {t('schedule.noChildren')}{' '}
             <a href="/children" className="text-blue-600 hover:underline">
-              Add a child first.
+              {t('schedule.goToChildren')}
             </a>
           </p>
         ) : (
@@ -192,15 +177,12 @@ export function SchedulePage() {
         )}
       </div>
 
-      {/* Schedules list */}
       {selectedChild && (
         <>
           {schedules === undefined ? (
-            <div className="text-center py-10 text-slate-400">Loading schedules…</div>
+            <div className="text-center py-10 text-slate-400">{t('schedule.loading')}</div>
           ) : schedules.length === 0 ? (
-            <div className="text-center py-10 text-slate-400">
-              No schedules yet. Add one above.
-            </div>
+            <div className="text-center py-10 text-slate-400">{t('schedule.empty')}</div>
           ) : (
             <div className="space-y-3">
               {((schedules as Schedule[]) ?? []).map((s) => {
@@ -212,22 +194,19 @@ export function SchedulePage() {
                   >
                     {isEditing ? (
                       <div className="space-y-3">
-                        <ScheduleFormFields
-                          value={editForm}
-                          onChange={setEditForm}
-                        />
+                        <ScheduleFormFields value={editForm} onChange={setEditForm} />
                         <div className="flex gap-2">
                           <button
                             onClick={() => setEditId(null)}
                             className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-300 text-sm text-slate-600 hover:bg-slate-50"
                           >
-                            <X size={14} /> Cancel
+                            <X size={14} /> {t('common.cancel')}
                           </button>
                           <button
                             onClick={handleSaveEdit}
                             className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-sm hover:bg-blue-700"
                           >
-                            <Check size={14} /> Save
+                            <Check size={14} /> {t('common.save')}
                           </button>
                         </div>
                       </div>
@@ -278,33 +257,32 @@ export function SchedulePage() {
         </>
       )}
 
-      {/* Add Schedule Modal */}
       {showAdd && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="bg-white rounded-xl border border-slate-200 shadow-xl p-6 w-full max-w-md mx-4">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-slate-800">Add Schedule</h2>
+              <h2 className="text-lg font-semibold text-slate-800">{t('schedule.add')}</h2>
               <button onClick={() => setShowAdd(false)} className="text-slate-400 hover:text-slate-600">
                 <X size={20} />
               </button>
             </div>
             <ScheduleFormFields value={form} onChange={setForm} />
             {form.daysOfWeek.length === 0 && (
-              <p className="text-xs text-red-500 mt-2">Select at least one day</p>
+              <p className="text-xs text-red-500 mt-2">{t('schedule.daysRequired')}</p>
             )}
             <div className="flex gap-3 mt-6">
               <button
                 onClick={() => setShowAdd(false)}
                 className="flex-1 py-2 rounded-lg border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
                 onClick={handleCreate}
                 disabled={saving || form.daysOfWeek.length === 0}
                 className="flex-1 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
               >
-                {saving ? 'Adding…' : 'Add Schedule'}
+                {saving ? t('common.loading') : t('schedule.add')}
               </button>
             </div>
           </div>
@@ -321,18 +299,18 @@ function ScheduleFormFields({
   value: ScheduleFormState
   onChange: (v: ScheduleFormState) => void
 }) {
+  const { t } = useTranslation()
   return (
     <div className="space-y-4">
-      {/* Days */}
       <div>
-        <label className="block text-sm font-medium text-slate-700 mb-2">Days</label>
+        <label className="block text-sm font-medium text-slate-700 mb-2">{t('schedule.form.days')}</label>
         <div className="flex flex-wrap gap-2">
-          {DAYS.map((day, i) => {
+          {DAY_KEYS.map((dayKey, i) => {
             const dayVal = DAY_VALUES[i]
             const active = value.daysOfWeek.includes(dayVal)
             return (
               <button
-                key={day}
+                key={dayKey}
                 onClick={() =>
                   onChange({
                     ...value,
@@ -348,17 +326,16 @@ function ScheduleFormFields({
                     : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50',
                 ].join(' ')}
               >
-                {day}
+                {t(dayKey)}
               </button>
             )
           })}
         </div>
       </div>
 
-      {/* Time range */}
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Start Time</label>
+          <label className="block text-sm font-medium text-slate-700 mb-1">{t('schedule.startTime')}</label>
           <input
             type="time"
             value={value.startTime}
@@ -367,7 +344,7 @@ function ScheduleFormFields({
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">End Time</label>
+          <label className="block text-sm font-medium text-slate-700 mb-1">{t('schedule.endTime')}</label>
           <input
             type="time"
             value={value.endTime}
@@ -377,17 +354,16 @@ function ScheduleFormFields({
         </div>
       </div>
 
-      {/* Action */}
       <div>
-        <label className="block text-sm font-medium text-slate-700 mb-1">Action</label>
+        <label className="block text-sm font-medium text-slate-700 mb-1">{t('schedule.form.action')}</label>
         <select
           value={value.action}
           onChange={(e) => onChange({ ...value, action: e.target.value as Action })}
           className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
-          <option value="block">Block — deny all internet access</option>
-          <option value="allow">Allow — permit all access</option>
-          <option value="limit">Limit — apply category restrictions only</option>
+          <option value="block">{t('schedule.action.blockDesc')}</option>
+          <option value="allow">{t('schedule.action.allowDesc')}</option>
+          <option value="limit">{t('schedule.action.limitDesc')}</option>
         </select>
       </div>
     </div>
@@ -395,6 +371,7 @@ function ScheduleFormFields({
 }
 
 function ActionBadge({ action }: { action: string }) {
+  const { t } = useTranslation()
   const styles: Record<string, string> = {
     block: 'bg-red-100 text-red-700',
     allow: 'bg-green-100 text-green-700',
@@ -403,11 +380,11 @@ function ActionBadge({ action }: { action: string }) {
   return (
     <span
       className={[
-        'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium capitalize',
+        'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium',
         styles[action] ?? 'bg-slate-100 text-slate-600',
       ].join(' ')}
     >
-      {action}
+      {t(`schedule.action.${action}`)}
     </span>
   )
 }

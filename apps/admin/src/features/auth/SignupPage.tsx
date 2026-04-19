@@ -2,10 +2,13 @@
 
 import { useState, FormEvent } from 'react'
 import { useAuthActions } from '@convex-dev/auth/react'
+import { useTranslation } from 'react-i18next'
 import Link from 'next/link'
 import { ShieldCheck } from 'lucide-react'
+import '@/shared/i18n'
 
 export function SignupPage() {
+  const { t } = useTranslation()
   const { signIn } = useAuthActions()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -18,8 +21,8 @@ export function SignupPage() {
     setLoading(true)
     try {
       await signIn('password', { email, password, flow: 'signUp' })
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Sign-up failed')
+    } catch {
+      setError(t('signup.error'))
     } finally {
       setLoading(false)
     }
@@ -30,14 +33,14 @@ export function SignupPage() {
       <div className="w-full max-w-sm bg-white rounded-xl shadow-sm border border-slate-200 p-8">
         <div className="flex flex-col items-center mb-6">
           <ShieldCheck size={36} className="text-blue-600 mb-2" />
-          <h1 className="text-2xl font-bold text-slate-800">Create Account</h1>
-          <p className="text-sm text-slate-500 mt-1">Set up PiGuard for your family</p>
+          <h1 className="text-2xl font-bold text-slate-800">{t('signup.title')}</h1>
+          <p className="text-sm text-slate-500 mt-1">{t('signup.subtitle')}</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">
-              Email
+              {t('signup.email')}
             </label>
             <input
               type="email"
@@ -45,12 +48,12 @@ export function SignupPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="you@example.com"
+              placeholder="ty@przyklad.pl"
             />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">
-              Password
+              {t('signup.password')}
             </label>
             <input
               type="password"
@@ -59,7 +62,7 @@ export function SignupPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Min. 8 characters"
+              placeholder={t('signup.passwordPlaceholder')}
             />
           </div>
 
@@ -74,14 +77,13 @@ export function SignupPage() {
             disabled={loading}
             className="w-full py-2 px-4 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
           >
-            {loading ? 'Creating account…' : 'Create Account'}
+            {loading ? t('common.loading') : t('signup.submit')}
           </button>
         </form>
 
         <p className="text-center text-sm text-slate-500 mt-6">
-          Already have an account?{' '}
           <Link href="/login" className="text-blue-600 hover:underline font-medium">
-            Sign in
+            {t('signup.haveAccount')}
           </Link>
         </p>
       </div>

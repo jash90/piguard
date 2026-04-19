@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   ShieldCheck,
   Users,
@@ -13,27 +14,27 @@ import {
   LayoutDashboard,
   Eye,
 } from 'lucide-react'
+import '@/shared/i18n'
 
-const navItems = [
-  { href: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/blocklist', label: 'Blocklist', icon: ShieldCheck },
-  { href: '/watched', label: 'Watched Domains', icon: Eye },
-  { href: '/children', label: 'Children', icon: Users },
-  { href: '/devices', label: 'Devices', icon: Monitor },
-  { href: '/schedule', label: 'Schedules', icon: Clock },
+const NAV_ITEMS = [
+  { href: '/',          labelKey: 'nav.dashboard', icon: LayoutDashboard },
+  { href: '/blocklist', labelKey: 'nav.blocklist', icon: ShieldCheck },
+  { href: '/watched',   labelKey: 'nav.watched',   icon: Eye },
+  { href: '/children',  labelKey: 'nav.children',  icon: Users },
+  { href: '/devices',   labelKey: 'nav.devices',   icon: Monitor },
+  { href: '/schedule',  labelKey: 'nav.schedule',  icon: Clock },
 ]
 
 export function Sidebar() {
+  const { t } = useTranslation()
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
 
-  const isLoginPage =
-    pathname === '/login' || pathname === '/signup'
+  const isLoginPage = pathname === '/login' || pathname === '/signup'
   if (isLoginPage) return null
 
   return (
     <>
-      {/* Mobile hamburger */}
       <button
         className="fixed top-4 left-4 z-50 md:hidden rounded-lg bg-white shadow p-2 border border-slate-200"
         onClick={() => setOpen((o) => !o)}
@@ -42,7 +43,6 @@ export function Sidebar() {
         {open ? <X size={20} /> : <Menu size={20} />}
       </button>
 
-      {/* Overlay */}
       {open && (
         <div
           className="fixed inset-0 z-40 bg-black/30 md:hidden"
@@ -50,7 +50,6 @@ export function Sidebar() {
         />
       )}
 
-      {/* Sidebar panel */}
       <aside
         className={[
           'fixed left-0 top-0 z-40 h-full w-64 bg-white border-r border-slate-200 flex flex-col transition-transform duration-200',
@@ -58,15 +57,13 @@ export function Sidebar() {
           open ? 'translate-x-0' : '-translate-x-full',
         ].join(' ')}
       >
-        {/* Logo */}
         <div className="flex items-center gap-2 px-6 py-5 border-b border-slate-100">
           <ShieldCheck size={24} className="text-blue-600" />
           <span className="text-lg font-bold text-slate-800">PiGuard</span>
         </div>
 
-        {/* Nav */}
         <nav className="flex-1 py-4 overflow-y-auto">
-          {navItems.map(({ href, label, icon: Icon }) => {
+          {NAV_ITEMS.map(({ href, labelKey, icon: Icon }) => {
             const active =
               href === '/' ? pathname === '/' : pathname.startsWith(href)
             return (
@@ -82,15 +79,14 @@ export function Sidebar() {
                 ].join(' ')}
               >
                 <Icon size={18} />
-                {label}
+                {t(labelKey)}
               </Link>
             )
           })}
         </nav>
 
-        {/* Footer */}
         <div className="px-6 py-4 border-t border-slate-100 text-xs text-slate-400">
-          PiGuard Admin v1.0
+          {t('nav.version')}
         </div>
       </aside>
     </>

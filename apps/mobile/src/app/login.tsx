@@ -10,8 +10,10 @@ import {
 } from 'react-native'
 import { useAuthActions } from '@convex-dev/auth/react'
 import { useRouter } from 'expo-router'
+import { useTranslation } from 'react-i18next'
 
 export default function LoginScreen() {
+  const { t } = useTranslation()
   const { signIn } = useAuthActions()
   const router = useRouter()
 
@@ -24,7 +26,7 @@ export default function LoginScreen() {
 
   const handleSignIn = async () => {
     if (!email.trim() || !password) {
-      setError('Please enter your email and password.')
+      setError(t('login.error.empty'))
       return
     }
     setLoading(true)
@@ -33,7 +35,7 @@ export default function LoginScreen() {
       await signIn('password', { email: email.trim(), password, flow: 'signIn' })
       router.replace('/(tabs)')
     } catch {
-      setError('Invalid email or password. Please try again.')
+      setError(t('login.error.invalid'))
     } finally {
       setLoading(false)
     }
@@ -49,17 +51,17 @@ export default function LoginScreen() {
         <View className="mb-10 items-center">
           <Text className="text-6xl">🛡️</Text>
           <Text className="mt-3 text-3xl font-bold text-blue-600">PiGuard</Text>
-          <Text className="mt-1 text-base text-gray-500">Parental DNS Protection</Text>
+          <Text className="mt-1 text-base text-gray-500">{t('login.subtitle')}</Text>
         </View>
 
         {/* Form card */}
         <View className="w-full rounded-3xl bg-gray-50 p-6">
           {/* Email field */}
           <View className="mb-4">
-            <Text className="mb-1.5 text-sm font-semibold text-gray-700">Email</Text>
+            <Text className="mb-1.5 text-sm font-semibold text-gray-700">{t('login.email')}</Text>
             <TextInput
               className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3.5 text-base text-gray-900"
-              placeholder="you@example.com"
+              placeholder={t('login.emailPlaceholder')}
               placeholderTextColor="#9CA3AF"
               value={email}
               onChangeText={setEmail}
@@ -73,7 +75,7 @@ export default function LoginScreen() {
 
           {/* Password field */}
           <View className="mb-5">
-            <Text className="mb-1.5 text-sm font-semibold text-gray-700">Password</Text>
+            <Text className="mb-1.5 text-sm font-semibold text-gray-700">{t('login.password')}</Text>
             <TextInput
               ref={passwordRef}
               className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3.5 text-base text-gray-900"
@@ -104,7 +106,7 @@ export default function LoginScreen() {
             {loading ? (
               <ActivityIndicator color="white" />
             ) : (
-              <Text className="text-base font-semibold text-white">Sign In</Text>
+              <Text className="text-base font-semibold text-white">{t('login.submit')}</Text>
             )}
           </TouchableOpacity>
         </View>

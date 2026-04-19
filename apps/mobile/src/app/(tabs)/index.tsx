@@ -2,7 +2,10 @@ import { FlatList, RefreshControl, Text, View } from 'react-native'
 import { useQuery } from 'convex/react'
 import { makeFunctionReference } from 'convex/server'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useTranslation } from 'react-i18next'
 import { StatusBadge } from '@/shared/ui/StatusBadge'
+import { AwayPlaceholder } from '@/shared/ui/AwayBanner'
+import { useNetwork } from '@/shared/lib/network'
 import { formatRelativeTime } from '@/shared/lib/format'
 
 type DnsLog = {
@@ -16,8 +19,10 @@ type DnsLog = {
 const getRecentQuery = makeFunctionReference<'query'>('dnsLogs:getRecent')
 
 export default function ActivityScreen() {
+  const { t } = useTranslation()
   const insets = useSafeAreaInsets()
   const logs = useQuery(getRecentQuery, { limit: 50 })
+  const { isConnected } = useNetwork()
 
   const renderItem = ({ item }: { item: DnsLog }) => (
     <View
@@ -65,19 +70,21 @@ export default function ActivityScreen() {
       }
       ListHeaderComponent={
         <View className="px-4 pb-3">
-          <Text className="text-2xl font-bold text-gray-900">Activity</Text>
-          <Text className="mt-0.5 text-sm text-gray-400">Real-time DNS feed</Text>
+          <Text className="text-2xl font-bold text-gray-900">{t('activity.title')}</Text>
+          <Text className="mt-0.5 text-sm text-gray-400">{t('activity.subtitle')}</Text>
         </View>
       }
       ListEmptyComponent={
-        logs !== undefined ? (
+        !isConnected && logs === undefined ? (
+          <AwayPlaceholder title={t('activity.away.title')} icon="📡" />
+        ) : logs !== undefined ? (
           <View className="flex-1 items-center justify-center py-20">
             <Text className="text-5xl">🔍</Text>
             <Text className="mt-4 text-base font-semibold text-gray-600">
-              No DNS activity yet
+              {t('activity.empty.title')}
             </Text>
             <Text className="mt-1 text-sm text-gray-400">
-              Queries will appear here in real time
+              {t('activity.empty.description')}
             </Text>
           </View>
         ) : null

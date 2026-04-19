@@ -2,6 +2,7 @@
   "name": "piguard",
   "private": true,
   "scripts": {
+    "demo": "bash scripts/demo.sh",
     "dev:admin": "turbo dev --filter=@piguard/admin",
     "dev:web": "turbo dev --filter=@piguard/web",
     "dev:mobile": "turbo dev --filter=@piguard/mobile",

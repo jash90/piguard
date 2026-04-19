@@ -1,9 +1,42 @@
 import { httpRouter } from 'convex/server'
 import { httpAction } from './_generated/server'
 import { internal } from './_generated/api'
-import { getCategoryForDomain } from './lib/categories'
+import { getCategoryForDomain, getDomainsForCategory } from './lib/categories'
 
 const http = httpRouter()
+
+// Health-check endpoint — used by mobile app to detect if backend is reachable
+http.route({
+  path: '/ping',
+  method: 'GET',
+  handler: httpAction(async () => {
+    return new Response(
+      JSON.stringify({ ok: true, timestamp: Date.now() }),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+      }
+    )
+  }),
+})
+
+http.route({
+  path: '/ping',
+  method: 'OPTIONS',
+  handler: httpAction(async () => {
+    return new Response(null, {
+      status: 204,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type',
+      },
+    })
+  }),
+})
 
 // Bulk DNS log ingestion from Pi bridge
 http.route({
@@ -109,6 +142,8 @@ http.route({
         }
       } else if (rule.type === 'domain') {
         plainDomains.push(rule.value)
+      } else if (rule.type === 'category') {
+        expandedDomains.push(...getDomainsForCategory(rule.value))
       }
     }
 

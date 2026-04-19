@@ -14,7 +14,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
+    <html lang="pl">
       <body className="bg-slate-50 text-slate-900">
         <AppProvider>
           <div className="flex min-h-screen">

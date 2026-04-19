@@ -2,6 +2,9 @@ import { FlatList, Text, View } from 'react-native'
 import { useQuery } from 'convex/react'
 import { makeFunctionReference } from 'convex/server'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useTranslation } from 'react-i18next'
+import { AwayPlaceholder } from '@/shared/ui/AwayBanner'
+import { useNetwork } from '@/shared/lib/network'
 import { formatRelativeTime } from '@/shared/lib/format'
 
 type DnsLog = {
@@ -15,8 +18,10 @@ type DnsLog = {
 const getBlockedQuery = makeFunctionReference<'query'>('dnsLogs:getBlocked')
 
 export default function NotificationsScreen() {
+  const { t } = useTranslation()
   const insets = useSafeAreaInsets()
   const logs = useQuery(getBlockedQuery, { limit: 50 })
+  const { isConnected } = useNetwork()
 
   const renderItem = ({ item }: { item: DnsLog }) => (
     <View
@@ -39,7 +44,7 @@ export default function NotificationsScreen() {
           </Text>
         </View>
         <View className="ml-2 rounded-full bg-red-100 px-2.5 py-0.5">
-          <Text className="text-xs font-semibold text-red-700">Blocked</Text>
+          <Text className="text-xs font-semibold text-red-700">{t('alerts.badge.blocked')}</Text>
         </View>
       </View>
     </View>
@@ -58,19 +63,21 @@ export default function NotificationsScreen() {
       renderItem={renderItem}
       ListHeaderComponent={
         <View className="px-4 pb-3">
-          <Text className="text-2xl font-bold text-gray-900">Alerts</Text>
-          <Text className="mt-0.5 text-sm text-gray-400">Blocked DNS attempts</Text>
+          <Text className="text-2xl font-bold text-gray-900">{t('alerts.title')}</Text>
+          <Text className="mt-0.5 text-sm text-gray-400">{t('alerts.subtitle')}</Text>
         </View>
       }
       ListEmptyComponent={
-        logs !== undefined ? (
+        !isConnected && logs === undefined ? (
+          <AwayPlaceholder title={t('alerts.away.title')} icon="📡" />
+        ) : logs !== undefined ? (
           <View className="flex-1 items-center justify-center py-20">
             <Text className="text-5xl">✅</Text>
             <Text className="mt-4 text-base font-semibold text-gray-600">
-              No blocked attempts
+              {t('alerts.empty.title')}
             </Text>
             <Text className="mt-1 text-sm text-gray-400">
-              All DNS queries are currently allowed
+              {t('alerts.empty.description')}
             </Text>
           </View>
         ) : null

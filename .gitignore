@@ -6,3 +6,5 @@ dist/
 *.tsbuildinfo
 .turbo/
 convex/_generated/
+.expo/
+my-video/

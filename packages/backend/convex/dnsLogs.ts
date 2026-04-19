@@ -63,7 +63,6 @@ export const getByDevice = query({
         )
         .order('desc')
         .take(limit)
-        .collect()
     }
 
     return await ctx.db
@@ -71,7 +70,6 @@ export const getByDevice = query({
       .withIndex('by_device', (q) => q.eq('deviceId', args.deviceId))
       .order('desc')
       .take(limit)
-      .collect()
   },
 })
 
@@ -87,7 +85,6 @@ export const getRecent = query({
       .withIndex('by_timestamp')
       .order('desc')
       .take(limit)
-      .collect()
   },
 })
 
@@ -105,7 +102,6 @@ export const getBlocked = query({
       )
       .order('desc')
       .take(limit)
-      .collect()
   },
 })
 

@@ -4,6 +4,7 @@ import { getLogsSince, getMaxId } from './localDb.js'
 import { pushDnsEvents, updateSyncCursor } from './convexSync.js'
 import { syncRules } from './ruleSync.js'
 import { writeInfluxStats } from './influxLogger.js'
+import { startMockBridge, stopMockBridge } from './mockBridge.js'
 
 let dnsCursor: number = 0
 let isShuttingDown = false
@@ -11,16 +12,31 @@ let isShuttingDown = false
 async function main() {
   console.log('PiGuard Bridge starting...')
   console.log(`Convex URL: ${config.convexUrl || '(not set)'}`)
-  console.log(`Pi-hole URL: ${config.piHoleUrl}`)
-  console.log(
-    `Sync intervals: DNS=${config.dnsLogSyncIntervalMs}ms, Rules=${config.ruleSyncIntervalMs}ms`
-  )
 
   // Validate config
   if (!config.convexUrl) {
     console.error('CONVEX_URL is required')
     process.exit(1)
   }
+
+  // -----------------------------------------------------------------------
+  // Mock mode — generate fake DNS events, no Pi-hole needed
+  // -----------------------------------------------------------------------
+  if (config.mockMode) {
+    console.log('🔧 MOCK MODE — generating fake DNS events')
+    process.on('SIGINT', () => { stopMockBridge(); process.exit(0) })
+    process.on('SIGTERM', () => { stopMockBridge(); process.exit(0) })
+    await startMockBridge()
+    return
+  }
+
+  // -----------------------------------------------------------------------
+  // Real Pi-hole mode
+  // -----------------------------------------------------------------------
+  console.log(`Pi-hole URL: ${config.piHoleUrl}`)
+  console.log(
+    `Sync intervals: DNS=${config.dnsLogSyncIntervalMs}ms, Rules=${config.ruleSyncIntervalMs}ms`
+  )
 
   // Authenticate with Pi-hole
   try {

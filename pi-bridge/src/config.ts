@@ -8,6 +8,11 @@ export const config = {
   convexUrl: process.env.CONVEX_URL ?? '',
   convexHttpUrl: '', // Derived from convexUrl at runtime
 
+  // Mock mode — generate fake DNS events instead of reading Pi-hole
+  mockMode: process.env.MOCK_MODE === 'true',
+  mockIntervalMs: parseInt(process.env.MOCK_INTERVAL ?? '5000', 10),
+  mockBurstCount: parseInt(process.env.MOCK_BURST ?? '200', 10),
+
   // Sync intervals
   dnsLogSyncIntervalMs: parseInt(
     process.env.DNS_SYNC_INTERVAL ?? '30000',
@@ -37,11 +42,23 @@ export const config = {
 // Derive HTTP action URL from Convex URL
 export function getConvexHttpUrl(): string {
   if (config.convexHttpUrl) return config.convexHttpUrl
-  // Convex URL looks like: https://happy-animal-123.convex.cloud
-  // HTTP actions are at: https://happy-animal-123.convex.site
-  config.convexHttpUrl = config.convexUrl.replace(
-    '.convex.cloud',
-    '.convex.site'
-  )
+
+  // Cloud: https://happy-animal-123.convex.cloud → .convex.site
+  if (config.convexUrl.includes('.convex.cloud')) {
+    config.convexHttpUrl = config.convexUrl.replace('.convex.cloud', '.convex.site')
+    return config.convexHttpUrl
+  }
+
+  // Local dev: http://127.0.0.1:3210 → http://127.0.0.1:3211
+  try {
+    const url = new URL(config.convexUrl)
+    const port = parseInt(url.port, '10')
+    if (!isNaN(port)) {
+      url.port = String(port + 1)
+    }
+    config.convexHttpUrl = url.toString().replace(/\/$/, '')
+  } catch {
+    config.convexHttpUrl = config.convexUrl
+  }
   return config.convexHttpUrl
 }
